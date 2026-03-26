@@ -8,3 +8,8 @@ output "public_subnets" {
     aws_subnet.public_2.id
   ]
 }
+
+output "alb_dns_name" {
+  description = "DNS do Application Load Balancer"
+  value       = aws_lb.app.dns_name
+}
