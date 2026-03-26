@@ -35,3 +35,10 @@ jobs:
       - name: Push image to ECR
         run: |
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend:latest
+
+      - name: ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster devopsprojectgiancarlo-dev-cluster \
+            --service devopsprojectgiancarlo-dev-service \
+            --force-new-deployment
