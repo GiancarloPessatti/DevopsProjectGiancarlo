@@ -3,7 +3,7 @@ variable "aws_region" {
 }
 
 variable "project_name" {
-  default = "devops-portfolio"
+  default = "devopsprojectgiancarlo"
 }
 
 variable "environment" {
