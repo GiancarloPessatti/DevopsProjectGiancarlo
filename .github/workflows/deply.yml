@@ -45,7 +45,7 @@ jobs:
         run: |
           sed -e "s|IMAGE_URI|${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend:$IMAGE_TAG|" \
               -e "s|EXECUTION_ROLE_ARN|${{ secrets.ECS_EXECUTION_ROLE_ARN }}|" \
-              .github/ecs-task-def.json > task-def.json
+              .github/workflows/ecs-task-def.json > task-def.json
 
       - name: Deploy to ECS
         run: |
