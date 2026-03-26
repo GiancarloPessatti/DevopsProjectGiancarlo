@@ -42,3 +42,13 @@ jobs:
             --cluster devopsprojectgiancarlo-dev-cluster \
             --service devopsprojectgiancarlo-dev-service \
             --force-new-deployment
+      - name: ALB URL
+        working-directory: infra/terraform/environments/dev
+        run: |
+          terraform init -input=false
+          ALB=$(terraform output -raw alb_dns_name)
+
+          echo "=================================="
+          echo " Deploy bala realizado!"
+          echo "   URL: http://$ALB"
+          echo "=================================="
