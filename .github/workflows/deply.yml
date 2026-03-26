@@ -33,8 +33,10 @@ jobs:
 
       - name: Tag image
         run: |
-          docker tag backend:$IMAGE_TAG \
-          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend:$IMAGE_TAG
+          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend
+
+          docker tag backend:$IMAGE_TAG $IMAGE_URI:$IMAGE_TAG
+          docker tag backend:$IMAGE_TAG $IMAGE_URI:dev
 
       - name: Push image to ECR
         run: |
