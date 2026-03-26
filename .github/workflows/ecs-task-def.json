@@ -1,0 +1,20 @@
+{
+  "family": "devopsprojectgiancarlo-dev",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "EXECUTION_ROLE_ARN",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "IMAGE_URI",
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "hostPort": 3000
+        }
+      ]
+    }
+  ]
+}
