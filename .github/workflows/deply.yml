@@ -42,6 +42,10 @@ jobs:
             --cluster devopsprojectgiancarlo-dev-cluster \
             --service devopsprojectgiancarlo-dev-service \
             --force-new-deployment
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
       - name: ALB URL
         working-directory: infra/terraform/environments/dev
         run: |
