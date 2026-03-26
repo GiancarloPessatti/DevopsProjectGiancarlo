@@ -46,3 +46,24 @@ resource "aws_ecs_service" "app" {
 
   depends_on = [aws_lb_listener.http]
 }
+
+resource "aws_ecr_lifecycle_policy" "backend" {
+  repository = aws_ecr_repository.backend.name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 10 images"
+        selection = {
+          tagStatus     = "any"
+          countType     = "imageCountMoreThan"
+          countNumber   = 3
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
+}
