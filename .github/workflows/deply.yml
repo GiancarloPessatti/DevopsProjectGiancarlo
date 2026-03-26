@@ -24,20 +24,34 @@ jobs:
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Set image tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+
       - name: Build Docker image
         run: |
-          docker build -t backend -f docker/backend/Dockerfile .
+          docker build -t backend:$IMAGE_TAG -f docker/backend/Dockerfile .
 
       - name: Tag image
         run: |
-          docker tag backend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend:latest
+          docker tag backend:$IMAGE_TAG \
+          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend:$IMAGE_TAG
 
       - name: Push image to ECR
         run: |
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend:latest
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend:$IMAGE_TAG
 
-      - name: ECS deployment
+
+      - name: Render task definition
         run: |
+          sed -e "s|IMAGE_URI|${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend:$IMAGE_TAG|" \
+              -e "s|EXECUTION_ROLE_ARN|${{ secrets.ECS_EXECUTION_ROLE_ARN }}|" \
+              .github/ecs-task-def.json > task-def.json
+
+      - name: Deploy to ECS
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://task-def.json
+
           aws ecs update-service \
             --cluster devopsprojectgiancarlo-dev-cluster \
             --service devopsprojectgiancarlo-dev-service \
