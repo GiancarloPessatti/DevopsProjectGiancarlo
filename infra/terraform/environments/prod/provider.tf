@@ -7,10 +7,9 @@ terraform {
 
   backend "s3" {
     bucket         = "devops-portfolio-terraform-state-giancarlo"
-    key            = "dev/terraform.tfstate"
+    key            = "prod/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "terraform-lock"
-    encrypt        = true
   }
 
   required_providers {

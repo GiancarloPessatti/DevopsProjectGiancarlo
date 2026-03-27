@@ -5,7 +5,7 @@ const PORT = 3000;
 
 app.get('/', (req, res) => {
   res.json({
-    message: 'ECS Rodando',
+    message: 'ECS Rodando v2',
     timestamp: new Date()
   });
 });
