@@ -1,4 +1,4 @@
-name: Build and Push to ECR
+name: Build and Push ECR
 
 on:
   push:
@@ -12,17 +12,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v3
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to ECR
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@v1
 
       - name: Set image tag
         run: echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
@@ -34,19 +34,20 @@ jobs:
       - name: Tag image
         run: |
           IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend
-
           docker tag backend:$IMAGE_TAG $IMAGE_URI:$IMAGE_TAG
           docker tag backend:$IMAGE_TAG $IMAGE_URI:dev
 
       - name: Push image to ECR
         run: |
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend:$IMAGE_TAG
-
+          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend
+          docker push $IMAGE_URI:$IMAGE_TAG
+          docker push $IMAGE_URI:dev
 
       - name: Render task definition
         run: |
-          sed -e "s|IMAGE_URI|${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend:$IMAGE_TAG|" \
-              -e "s|EXECUTION_ROLE_ARN|${{ secrets.ECS_EXECUTION_ROLE_ARN }}|" \
+          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/devopsprojectgiancarlo-dev-backend
+          sed -e "s|IMAGE_URI|$IMAGE_URI:$IMAGE_TAG|g" \
+              -e "s|EXECUTION_ROLE_ARN|${{ secrets.ECS_EXECUTION_ROLE_ARN }}|g" \
               .github/workflows/ecs-task-def.json > task-def.json
 
       - name: Deploy to ECS
@@ -57,21 +58,21 @@ jobs:
             --output text)
 
           aws ecs update-service \
-            --cluster devopsprojectgiancarlo-dev-cluster \
-            --service devopsprojectgiancarlo-dev-service \
+            --cluster devopsproject-dev-cluster \
+            --service devopsproject-dev-service \
             --task-definition $TASK_DEF_ARN \
             --force-new-deployment
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v2
 
       - name: ALB URL
         working-directory: infra/terraform/environments/dev
         run: |
           terraform init -input=false
           ALB=$(terraform output -raw alb_dns_name)
-
-          echo "=================================="
-          echo " Deploy bala realizado!"
-          echo "   URL: http://$ALB"
-          echo "=================================="
+          
+          echo "========================================="
+          echo " Deploy pegou no tranco"
+          echo " URL: http://$ALB" colocar  region nos ***
+          echo "========================================="
