@@ -33,12 +33,15 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
 
       - name: Get Terraform Outputs
         id: tf_outputs
-        working-directory: infra/terraform/environments/${{ env.TF_ENV }}
+        working-directory: infra/terraform/environments/dev
         run: |
           terraform init -input=false
+          # Agora o output virá "puro", sem lixo de log do wrapper
           echo "ECR_URL=$(terraform output -raw ecr_repository_url)" >> $GITHUB_ENV
           echo "ALB_DNS=$(terraform output -raw alb_dns_name)" >> $GITHUB_ENV
           echo "CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_ENV
