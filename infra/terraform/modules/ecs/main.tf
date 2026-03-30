@@ -52,7 +52,7 @@ resource "aws_ecs_service" "app" {
   }
 
   depends_on = [
-    aws_lb_listener.http
+    var.alb_listener_http
   ]
 
   tags = {
@@ -61,11 +61,9 @@ resource "aws_ecs_service" "app" {
 }
 
 output "ecs_cluster_name" {
-  description = "Nome do cluster ECS."
   value       = aws_ecs_cluster.main.name
 }
 
 output "ecs_service_name" {
-  description = "Nome do serviço ECS."
   value       = aws_ecs_service.app.name
 }
