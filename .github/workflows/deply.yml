@@ -159,9 +159,10 @@ jobs:
           echo "IMAGE=$IMAGE"
           echo "EXEC_ROLE=$EXEC_ROLE"
 
-          sed -e "s|IMAGE_PLACEHOLDER|$IMAGE|" \
-          -e "s|EXECUTION_ROLE_ARN|$EXEC_ROLE|" \
-          .github/workflows/task-definition.json > new-task-def.json
+          sed -e "s|FAMILY_PLACEHOLDER|backend-${ENVIRONMENT}|" \
+              -e "s|IMAGE_PLACEHOLDER|$IMAGE|" \
+              -e "s|EXECUTION_ROLE_ARN|$EXEC_ROLE|" \
+              .github/workflows/task-definition.json > new-task-def.json
 
           TASK_DEF_ARN=$(aws ecs register-task-definition \
           --cli-input-json file://new-task-def.json \

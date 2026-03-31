@@ -1,5 +1,5 @@
 {
-  "family": "devopsprojectgiancarlo",
+  "family": "FAMILY_PLACEHOLDER",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "256",
