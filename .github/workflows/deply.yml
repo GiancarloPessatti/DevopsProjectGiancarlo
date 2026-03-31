@@ -30,6 +30,8 @@ jobs:
       ecs_service_name: ${{ steps.tf_outputs.outputs.ecs_service_name }}
       alb_dns: ${{ steps.tf_outputs.outputs.alb_dns }}
       ecr_repository_url: ${{ steps.tf_outputs.outputs.ecr_repository_url }}
+      ecs_task_execution_role_arn: ${{ steps.tf_outputs.outputs.ecs_task_execution_role_arn }}
+            
 
     steps:
       - name: Checkout code
@@ -104,6 +106,8 @@ jobs:
           echo "ecs_service_name=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
           echo "alb_dns=$(terraform output -raw alb_dns_name)" >> $GITHUB_OUTPUT
           echo "ecr_repository_url=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
+          echo "ecs_task_execution_role_arn=$(terraform output -raw ecs_task_execution_role_arn)" >> $GITHUB_OUTPUT
+          
 
   build_and_deploy:
     name: Build e Deploy
@@ -142,17 +146,36 @@ jobs:
           docker push $ECR_URL:$IMG_TAG
           echo "IMAGE_TAG=$SHORT_SHA" >> $GITHUB_ENV
 
-      - name: Update ECS Service
+      - name: Register new Task Definition and Deploy
+        env:
+          CLUSTER: ${{ needs.terraform.outputs.ecs_cluster_name }}
+          SERVICE: ${{ needs.terraform.outputs.ecs_service_name }}
+          ECR_REPO: ${{ needs.terraform.outputs.ecr_repository_url }}
+          EXEC_ROLE: ${{ needs.terraform.outputs.ecs_task_execution_role_arn }}
+
         run: |
+          IMAGE="${ECR_REPO}:${IMAGE_TAG}"
+
+          echo "IMAGE=$IMAGE"
+          echo "EXEC_ROLE=$EXEC_ROLE"
+
+          sed -e "s|IMAGE_PLACEHOLDER|$IMAGE|" \
+          -e "s|EXECUTION_ROLE_ARN|$EXEC_ROLE|" \
+          .github/workflows/task-definition.json > new-task-def.json
+
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+          --cli-input-json file://new-task-def.json \
+          --query 'taskDefinition.taskDefinitionArn' \
+          --output text)
+
+
           aws ecs update-service \
-            --cluster ${{ needs.terraform.outputs.ecs_cluster_name }} \
-            --service ${{ needs.terraform.outputs.ecs_service_name }} \
-            --force-new-deployment \
-            --task-definition ${{ needs.terraform.outputs.ecs_task_definition_arn }}
+          --cluster $CLUSTER \
+          --service $SERVICE \
+          --task-definition $TASK_DEF_ARN
 
       - name: Deployment Summary
         run: |
           echo "Deploy Summary " >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image Tag**: \`${{ env.IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **ALB URL**: [http://${{ needs.terraform.outputs.alb_dns }}](http://${{ needs.terraform.outputs.alb_dns }})" >> $GITHUB_STEP_SUMMARY
