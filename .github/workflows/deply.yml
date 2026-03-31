@@ -1,4 +1,4 @@
-name: Build and Push ECR (Multi-Env)
+name: Build and Deploy
 
 on:
   push:
@@ -8,13 +8,19 @@ on:
 
 jobs:
   build:
+    name: Build and Deploy
     runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set environment name
+        id: set_env
         run: |
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "TF_ENV=prod" >> $GITHUB_ENV
@@ -24,24 +30,23 @@ jobs:
             echo "IMG_TAG=dev" >> $GITHUB_ENV
           fi
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
+          terraform_version: "1.7.0"
           terraform_wrapper: false
 
-      - name: Get Terraform Outputs
-        id: tf_outputs
-        working-directory: infra/terraform/environments/dev
+      - name: Terraform Init and Outputs
+        id: tf
+        working-directory: infra/terraform/environments/${{ env.TF_ENV }}
         run: |
           terraform init -input=false
-          # Agora o output virá "puro", sem lixo de log do wrapper
           echo "ECR_URL=$(terraform output -raw ecr_repository_url)" >> $GITHUB_ENV
           echo "ALB_DNS=$(terraform output -raw alb_dns_name)" >> $GITHUB_ENV
           echo "CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_ENV
@@ -49,22 +54,19 @@ jobs:
           echo "EXECUTION_ROLE_ARN=$(terraform output -raw ecs_task_execution_role_arn)" >> $GITHUB_ENV
 
       - name: Login to ECR
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Set image tag
-        run: echo "IMAGE_SHA_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+        run: echo "IMAGE_SHA_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Build Docker image
         run: |
           docker build -t backend:$IMAGE_SHA_TAG -f docker/backend/Dockerfile .
 
-      - name: Tag image
+      - name: Tag and Push image to ECR
         run: |
           docker tag backend:$IMAGE_SHA_TAG ${{ env.ECR_URL }}:$IMAGE_SHA_TAG
           docker tag backend:$IMAGE_SHA_TAG ${{ env.ECR_URL }}:${{ env.IMG_TAG }}
-
-      - name: Push image to ECR
-        run: |
           docker push ${{ env.ECR_URL }}:$IMAGE_SHA_TAG
           docker push ${{ env.ECR_URL }}:${{ env.IMG_TAG }}
 
@@ -87,9 +89,9 @@ jobs:
             --task-definition $TASK_DEF_ARN \
             --force-new-deployment
 
-      - name: Final Output
+      - name: Resumo Deploy
         run: |
-          echo "========================================="
-          echo " Deploy realizado no ambiente: ${{ env.TF_ENV }}"
-          echo " URL: http://${{ env.ALB_DNS }}"
-          echo "========================================="
+          echo "Deploy summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ env.TF_ENV }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image Tag**: \`$IMAGE_SHA_TAG\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **ALB URL**: [http://${{ env.ALB_DNS }}](http://${{ env.ALB_DNS }})" >> $GITHUB_STEP_SUMMARY
