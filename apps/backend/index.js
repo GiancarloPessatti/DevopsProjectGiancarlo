@@ -5,7 +5,7 @@ const PORT = 3000;
 
 app.get('/', (req, res) => {
   res.json({
-    message: 'ECS Rodando v4',
+    message: 'ECS Rodando v4.3 teste da separação de task definition por ambientes',
     timestamp: new Date()
   });
 });
