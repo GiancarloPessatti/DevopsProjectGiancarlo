@@ -1,13 +1,13 @@
 module "network" {
   source = "../../modules/network"
 
-  project_name       = var.project_name
-  environment        = var.environment
-  aws_region         = var.aws_region
-  vpc_cidr_block     = var.vpc_cidr_block
+  project_name               = var.project_name
+  environment                = var.environment
+  aws_region                 = var.aws_region
+  vpc_cidr_block             = var.vpc_cidr_block
   public_subnet_1_cidr_block = var.public_subnet_1_cidr_block
   public_subnet_2_cidr_block = var.public_subnet_2_cidr_block
-  availability_zones = var.availability_zones
+  availability_zones         = var.availability_zones
 }
 
 module "security" {
@@ -38,13 +38,13 @@ module "ecr" {
 module "alb" {
   source = "../../modules/alb"
 
-  project_name        = var.project_name
-  environment         = var.environment
-  subnet_ids          = module.network.public_subnet_ids
+  project_name          = var.project_name
+  environment           = var.environment
+  subnet_ids            = module.network.public_subnet_ids
   alb_security_group_id = module.security.alb_security_group_id
   alb_target_group_port = var.alb_target_group_port
-  vpc_id              = module.network.vpc_id
-  alb_port            = var.alb_port
+  vpc_id                = module.network.vpc_id
+  alb_port              = var.alb_port
 }
 
 module "ecs" {
