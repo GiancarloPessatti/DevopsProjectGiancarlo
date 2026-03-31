@@ -1,62 +1,65 @@
-resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
-  enable_dns_hostnames = true
+module "network" {
+  source = "../../modules/network"
 
-  tags = {
-    Name = "${var.project_name}-${var.environment}-vpc"
-  }
+  project_name       = var.project_name
+  environment        = var.environment
+  aws_region         = var.aws_region
+  vpc_cidr_block     = var.vpc_cidr_block
+  public_subnet_1_cidr_block = var.public_subnet_1_cidr_block
+  public_subnet_2_cidr_block = var.public_subnet_2_cidr_block
+  availability_zones = var.availability_zones
 }
 
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.main.id
+module "security" {
+  source = "../../modules/security"
 
-  tags = {
-    Name = "${var.project_name}-${var.environment}-igw"
-  }
+  project_name = var.project_name
+  environment  = var.environment
+  vpc_id       = module.network.vpc_id
+  app_port     = var.alb_target_group_port
+  alb_port     = var.alb_port
 }
 
-resource "aws_subnet" "public_1" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "${var.aws_region}a"
-  map_public_ip_on_launch = true
+module "iam" {
+  source = "../../modules/iam"
 
-  tags = {
-    Name = "${var.project_name}-${var.environment}-public-1"
-  }
+  project_name = var.project_name
+  environment  = var.environment
 }
 
-resource "aws_subnet" "public_2" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = "${var.aws_region}b"
-  map_public_ip_on_launch = true
+module "ecr" {
+  source = "../../modules/ecr"
 
-  tags = {
-    Name = "${var.project_name}-${var.environment}-public-2"
-  }
+  project_name        = var.project_name
+  environment         = var.environment
+  ecr_repository_name = var.ecr_repository_name
 }
 
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
+module "alb" {
+  source = "../../modules/alb"
 
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-
-  tags = {
-    Name = "${var.project_name}-${var.environment}-rt"
-  }
+  project_name        = var.project_name
+  environment         = var.environment
+  subnet_ids          = module.network.public_subnet_ids
+  alb_security_group_id = module.security.alb_security_group_id
+  alb_target_group_port = var.alb_target_group_port
+  vpc_id              = module.network.vpc_id
+  alb_port            = var.alb_port
 }
 
-resource "aws_route_table_association" "public_1" {
-  subnet_id      = aws_subnet.public_1.id
-  route_table_id = aws_route_table.public.id
-}
+module "ecs" {
+  source = "../../modules/ecs"
 
-resource "aws_route_table_association" "public_2" {
-  subnet_id      = aws_subnet.public_2.id
-  route_table_id = aws_route_table.public.id
+  project_name                = var.project_name
+  environment                 = var.environment
+  ecs_task_cpu                = var.ecs_task_cpu
+  ecs_task_memory             = var.ecs_task_memory
+  ecs_task_execution_role_arn = module.iam.ecs_task_execution_role_arn
+  ecs_container_image         = var.ecs_container_image
+  ecs_container_port          = var.ecs_container_port
+  ecs_service_desired_count   = var.ecs_service_desired_count
+  subnet_ids                  = module.network.public_subnet_ids
+  app_security_group_id       = module.security.app_security_group_id
+  alb_target_group_arn        = module.alb.alb_target_group_arn
+  alb_listener_http           = module.alb.alb_listener_http
 }
