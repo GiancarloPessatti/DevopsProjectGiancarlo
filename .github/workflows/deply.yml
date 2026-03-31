@@ -1,16 +1,116 @@
-name: Build and Deploy
+name: pipeline
 
 on:
+  pull_request:
+    branches: [main, dev]
+    types: [opened, synchronize, reopened]
   push:
-    branches:
-      - main
-      - dev
+    branches: [main, dev]
+
+env:
+  TF_WORKING_DIR: "infra/terraform/environments/${{ (github.ref_name == 'main' || github.base_ref == 'main') && 'prod' || 'dev' }}"
+  ENVIRONMENT: "${{ (github.ref_name == 'main' || github.base_ref == 'main') && 'prod' || 'dev' }}"
+  AWS_REGION: "us-east-1"
 
 jobs:
-  build:
-    name: Build and Deploy
+  terraform:
+    name: Terraform Workflow
     runs-on: ubuntu-latest
     
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+
+    environment: ${{ github.event_name == 'push' && ((github.ref_name == 'main' && 'prod') || (github.ref_name == 'dev' && 'dev')) || null }}
+
+    outputs:
+      ecs_task_definition_arn: ${{ steps.tf_outputs.outputs.ecs_task_definition_arn }}
+      ecs_cluster_name: ${{ steps.tf_outputs.outputs.ecs_cluster_name }}
+      ecs_service_name: ${{ steps.tf_outputs.outputs.ecs_service_name }}
+      alb_dns: ${{ steps.tf_outputs.outputs.alb_dns }}
+      ecr_repository_url: ${{ steps.tf_outputs.outputs.ecr_repository_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0"
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -input=false
+
+      - name: Terraform Format e Validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform fmt -check
+          terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        if: github.event_name == 'pull_request'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform plan -no-color -out=tfplan.binary > plan_output.txt
+          
+      - name: Plan para PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('${{ env.TF_WORKING_DIR }}/plan_output.txt', 'utf8');
+
+            const comment = `${{ env.ENVIRONMENT }}
+
+              <details>
+              <summary>plan</summary>
+
+              \`\`\`
+              ${plan}
+              \`\`\`
+
+              </details>`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Terraform Apply
+        if: github.event_name == 'push'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -auto-approve
+
+      - name: Extract Outputs
+        id: tf_outputs
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "ecs_task_definition_arn=$(terraform output -raw ecs_task_definition_arn)" >> $GITHUB_OUTPUT
+          echo "ecs_cluster_name=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
+          echo "ecs_service_name=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
+          echo "alb_dns=$(terraform output -raw alb_dns_name)" >> $GITHUB_OUTPUT
+          echo "ecr_repository_url=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
+
+  build_and_deploy:
+    name: Build e Deploy
+    runs-on: ubuntu-latest
+    needs: terraform
+    if: github.event_name == 'push'
+
     permissions:
       id-token: write
       contents: read
@@ -19,79 +119,40 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set environment name
-        id: set_env
-        run: |
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "TF_ENV=prod" >> $GITHUB_ENV
-            echo "IMG_TAG=main" >> $GITHUB_ENV
-          else
-            echo "TF_ENV=dev" >> $GITHUB_ENV
-            echo "IMG_TAG=dev" >> $GITHUB_ENV
-          fi
-
-      - name: Configure AWS credentials (OIDC)
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.7.0"
-          terraform_wrapper: false
-
-      - name: Terraform Init and Outputs
-        id: tf
-        working-directory: infra/terraform/environments/${{ env.TF_ENV }}
-        run: |
-          terraform init -input=false
-          echo "ECR_URL=$(terraform output -raw ecr_repository_url)" >> $GITHUB_ENV
-          echo "ALB_DNS=$(terraform output -raw alb_dns_name)" >> $GITHUB_ENV
-          echo "CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_ENV
-          echo "SERVICE_NAME=$(terraform output -raw ecs_service_name)" >> $GITHUB_ENV
-          echo "EXECUTION_ROLE_ARN=$(terraform output -raw ecs_task_execution_role_arn)" >> $GITHUB_ENV
-
-      - name: Login to ECR
+      - name: Login na ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set image tag
-        run: echo "IMAGE_SHA_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
-
-      - name: Build Docker image
+      - name: Builda e Push imagem
+        env:
+          ECR_URL: ${{ needs.terraform.outputs.ecr_repository_url }}
+          IMG_TAG: ${{ env.ENVIRONMENT }}
+          SHA: ${{ github.sha }}
         run: |
-          docker build -t backend:$IMAGE_SHA_TAG -f docker/backend/Dockerfile .
+          SHORT_SHA=${SHA::7}
+          docker build -t backend:$SHORT_SHA -f docker/backend/Dockerfile .
+          docker tag backend:$SHORT_SHA $ECR_URL:$SHORT_SHA
+          docker tag backend:$SHORT_SHA $ECR_URL:$IMG_TAG
+          docker push $ECR_URL:$SHORT_SHA
+          docker push $ECR_URL:$IMG_TAG
+          echo "IMAGE_TAG=$SHORT_SHA" >> $GITHUB_ENV
 
-      - name: Tag and Push image to ECR
+      - name: Update ECS Service
         run: |
-          docker tag backend:$IMAGE_SHA_TAG ${{ env.ECR_URL }}:$IMAGE_SHA_TAG
-          docker tag backend:$IMAGE_SHA_TAG ${{ env.ECR_URL }}:${{ env.IMG_TAG }}
-          docker push ${{ env.ECR_URL }}:$IMAGE_SHA_TAG
-          docker push ${{ env.ECR_URL }}:${{ env.IMG_TAG }}
-
-      - name: Render task definition
-        run: |
-          sed -e "s|IMAGE_URI|${{ env.ECR_URL }}:$IMAGE_SHA_TAG|g" \
-              -e "s|EXECUTION_ROLE_ARN|${{ env.EXECUTION_ROLE_ARN }}|g" \
-              .github/workflows/ecs-task-def.json > task-def.json
-
-      - name: Deploy to ECS
-        run: |
-          TASK_DEF_ARN=$(aws ecs register-task-definition \
-            --cli-input-json file://task-def.json \
-            --query 'taskDefinition.taskDefinitionArn' \
-            --output text)
-
           aws ecs update-service \
-            --cluster ${{ env.CLUSTER_NAME }} \
-            --service ${{ env.SERVICE_NAME }} \
-            --task-definition $TASK_DEF_ARN \
-            --force-new-deployment
+            --cluster ${{ needs.terraform.outputs.ecs_cluster_name }} \
+            --service ${{ needs.terraform.outputs.ecs_service_name }} \
+            --force-new-deployment \
+            --task-definition ${{ needs.terraform.outputs.ecs_task_definition_arn }}
 
-      - name: Resumo Deploy
+      - name: Deployment Summary
         run: |
-          echo "Deploy summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment**: ${{ env.TF_ENV }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image Tag**: \`$IMAGE_SHA_TAG\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **ALB URL**: [http://${{ env.ALB_DNS }}](http://${{ env.ALB_DNS }})" >> $GITHUB_STEP_SUMMARY
+          echo "Deploy Summary " >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image Tag**: \`${{ env.IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **ALB URL**: [http://${{ needs.terraform.outputs.alb_dns }}](http://${{ needs.terraform.outputs.alb_dns }})" >> $GITHUB_STEP_SUMMARY
