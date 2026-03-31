@@ -30,6 +30,8 @@ jobs:
       ecs_service_name: ${{ steps.tf_outputs.outputs.ecs_service_name }}
       alb_dns: ${{ steps.tf_outputs.outputs.alb_dns }}
       ecr_repository_url: ${{ steps.tf_outputs.outputs.ecr_repository_url }}
+      ecs_task_execution_role_arn: ${{ steps.tf_outputs.outputs.ecs_task_execution_role_arn }}
+            
 
     steps:
       - name: Checkout code
@@ -149,13 +151,17 @@ jobs:
           CLUSTER: ${{ needs.terraform.outputs.ecs_cluster_name }}
           SERVICE: ${{ needs.terraform.outputs.ecs_service_name }}
           ECR_REPO: ${{ needs.terraform.outputs.ecr_repository_url }}
-          IMAGE: ${{ needs.terraform.outputs.ecr_repository_url }}:${{ env.IMAGE_TAG }}
           EXEC_ROLE: ${{ needs.terraform.outputs.ecs_task_execution_role_arn }}
 
         run: |
+          IMAGE="${ECR_REPO}:${IMAGE_TAG}"
+
+          echo "IMAGE=$IMAGE"
+          echo "EXEC_ROLE=$EXEC_ROLE"
+
           sed -e "s|IMAGE_PLACEHOLDER|$IMAGE|" \
           -e "s|EXECUTION_ROLE_ARN|$EXEC_ROLE|" \
-          task-definition.json > new-task-def.json
+          .github/workflows/task-definition.json > new-task-def.json
 
           TASK_DEF_ARN=$(aws ecs register-task-definition \
           --cli-input-json file://new-task-def.json \
@@ -172,5 +178,4 @@ jobs:
         run: |
           echo "Deploy Summary " >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image Tag**: \`${{ env.IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **ALB URL**: [http://${{ needs.terraform.outputs.alb_dns }}](http://${{ needs.terraform.outputs.alb_dns }})" >> $GITHUB_STEP_SUMMARY
