@@ -142,13 +142,29 @@ jobs:
           docker push $ECR_URL:$IMG_TAG
           echo "IMAGE_TAG=$SHORT_SHA" >> $GITHUB_ENV
 
-      - name: Update ECS Service
+      - name: Register new Task Definition and Deploy
+        env:
+          CLUSTER: ${{ needs.terraform.outputs.ecs_cluster_name }}
+          SERVICE: ${{ needs.terraform.outputs.ecs_service_name }}
+          ECR_REPO: ${{ needs.terraform.outputs.ecr_repository_url }}
+          IMAGE: ${{ needs.terraform.outputs.ecr_repository_url }}:${{ env.IMAGE_TAG }}
+          EXEC_ROLE: ${{ needs.terraform.outputs.ecs_task_execution_role_arn }}
+
         run: |
+          sed -e "s|IMAGE_PLACEHOLDER|$IMAGE|" \
+          -e "s|EXECUTION_ROLE_ARN|$EXEC_ROLE|" \
+          task-definition.json > new-task-def.json
+
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+          --cli-input-json file://new-task-def.json \
+          --query 'taskDefinition.taskDefinitionArn' \
+          --output text)
+
+
           aws ecs update-service \
-            --cluster ${{ needs.terraform.outputs.ecs_cluster_name }} \
-            --service ${{ needs.terraform.outputs.ecs_service_name }} \
-            --force-new-deployment \
-            --task-definition ${{ needs.terraform.outputs.ecs_task_definition_arn }}
+          --cluster $CLUSTER \
+          --service $SERVICE \
+          --task-definition $TASK_DEF_ARN
 
       - name: Deployment Summary
         run: |
