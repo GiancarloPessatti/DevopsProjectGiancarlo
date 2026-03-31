@@ -104,6 +104,8 @@ jobs:
           echo "ecs_service_name=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
           echo "alb_dns=$(terraform output -raw alb_dns_name)" >> $GITHUB_OUTPUT
           echo "ecr_repository_url=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
+          echo "ecs_task_execution_role_arn=$(terraform output -raw ecs_task_execution_role_arn)" >> $GITHUB_OUTPUT
+          
 
   build_and_deploy:
     name: Build e Deploy
