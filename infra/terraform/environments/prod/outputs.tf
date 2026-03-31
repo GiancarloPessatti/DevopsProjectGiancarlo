@@ -17,3 +17,7 @@ output "ecs_service_name" {
 output "ecs_task_execution_role_arn" {
   value = module.iam.ecs_task_execution_role_arn
 }
+
+output "ecs_task_definition_arn" {
+  value = module.ecs.ecs_task_definition_arn
+}
