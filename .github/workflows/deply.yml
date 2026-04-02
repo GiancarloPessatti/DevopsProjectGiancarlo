@@ -61,7 +61,6 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        if: github.event_name == 'pull_request'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           terraform plan -no-color -out=tfplan.binary > plan_output.txt
