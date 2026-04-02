@@ -12,6 +12,10 @@ Este projeto é uma demonstração prática e abrangente de como construir, impl
 - Docker
 - Node.js (Express)
 
+## Diagrama
+
+![Architecture](docs/architecture.png)
+
 ## Funcionalidades Chave
 
 ### 1. Infraestrutura como Código (IaC) com Terraform
