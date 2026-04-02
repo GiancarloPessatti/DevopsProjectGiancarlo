@@ -5,11 +5,11 @@
   "cpu": "256",
   "memory": "512",
   "executionRoleArn": "EXECUTION_ROLE_ARN",
-  "essential": true,
   "containerDefinitions": [
     {
       "name": "backend",
       "image": "IMAGE_PLACEHOLDER",
+      "essential": true,
       "portMappings": [
         {
           "containerPort": 3000,
