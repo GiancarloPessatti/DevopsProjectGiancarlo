@@ -61,7 +61,6 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        if: github.event_name == 'pull_request'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           terraform plan -no-color -out=tfplan.binary > plan_output.txt
@@ -95,7 +94,7 @@ jobs:
       - name: Terraform Apply
         if: github.event_name == 'push'
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve tfplan.binary
 
       - name: Extract Outputs
         id: tf_outputs
@@ -171,9 +170,14 @@ jobs:
 
 
           aws ecs update-service \
-          --cluster $CLUSTER \
-          --service $SERVICE \
-          --task-definition $TASK_DEF_ARN
+            --cluster $CLUSTER \
+            --service $SERVICE \
+            --task-definition $TASK_DEF_ARN
+
+          aws ecs wait services-stable \
+            --cluster $CLUSTER \
+            --services $SERVICE 
+
 
       - name: Deployment Summary
         run: |
