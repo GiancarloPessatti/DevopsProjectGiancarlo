@@ -60,6 +60,17 @@ resource "aws_ecs_service" "app" {
   }
 }
 
+resource "aws_cloudwatch_log_group" "ecs_logs" {
+  name              = "/ecs/${var.project_name}-${var.environment}"
+  retention_in_days = 3
+
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-logs"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
 output "ecs_cluster_name" {
   value       = aws_ecs_cluster.main.name
 }
