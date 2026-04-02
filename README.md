@@ -64,9 +64,9 @@ Para replicar este ambiente, você precisará de:
 3.  Configure o segredo `ROLE_TO_ASSUME` no seu repositório GitHub (Settings -> Secrets and variables -> Actions) com o arn do provider OIDC. Configure também variáveis TF_ENV, uma prod, e outra dev (ou o nome de suas branch), e uma variável de repositório chamada AWS_REGION com sua região (recomendo a us-east-1)
 4.  Faça um *push* para a branch `dev` ou `main` para acionar o pipeline CI/CD e implantar a infraestrutura e a aplicação.
 
-## 📈 Próximos Passos e Melhorias Contínuas
+## Próximos Passos e Melhorias Contínuas
 
-Um projeto DevOps nunca está "terminado". Aqui estão algumas ideias para futuras melhorias, demonstrando um compromisso com a melhoria contínua:
+Um projeto DevOps nunca está "terminado". Aqui estão algumas ideias para o futuro:
 
 *   **HTTPS no ALB:** Configurar um certificado SSL/TLS via AWS Certificate Manager (ACM) e habilitar HTTPS no ALB para tráfego seguro.
 *   **Testes Automatizados:** Adicionar etapas de testes unitários e de integração no pipeline CI/CD para a aplicação Node.js.
