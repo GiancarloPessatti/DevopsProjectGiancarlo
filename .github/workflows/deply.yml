@@ -159,8 +159,10 @@ jobs:
           echo "EXEC_ROLE=$EXEC_ROLE"
 
           sed -e "s|FAMILY_PLACEHOLDER|backend-${ENVIRONMENT}|" \
+              -e "s|LOG_PLACEHOLDER|/ecs/devopsprojectgiancarlo-${ENVIRONMENT}|" \
               -e "s|IMAGE_PLACEHOLDER|$IMAGE|" \
               -e "s|EXECUTION_ROLE_ARN|$EXEC_ROLE|" \
+              -e "s|ENVIRONMENT_PLACEHOLDER|${ENVIRONMENT}|" \
               .github/workflows/task-definition.json > new-task-def.json
 
           TASK_DEF_ARN=$(aws ecs register-task-definition \

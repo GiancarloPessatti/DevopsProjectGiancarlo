@@ -9,13 +9,27 @@
     {
       "name": "backend",
       "image": "IMAGE_PLACEHOLDER",
+      "essential": true,
       "portMappings": [
         {
           "containerPort": 3000,
           "protocol": "tcp"
         }
       ],
-      "essential": true
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "LOG_PLACEHOLDER",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "ENVIRONMENT_PLACEHOLDER"
+        }
+      ] 
     }
   ]
 }
