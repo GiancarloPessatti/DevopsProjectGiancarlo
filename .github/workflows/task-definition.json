@@ -5,6 +5,7 @@
   "cpu": "256",
   "memory": "512",
   "executionRoleArn": "EXECUTION_ROLE_ARN",
+  "essential": true,
   "containerDefinitions": [
     {
       "name": "backend",
@@ -15,7 +16,20 @@
           "protocol": "tcp"
         }
       ],
-      "essential": true
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "LOG_PLACEHOLDER",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "ENVIRONMENT_PLACEHOLDER"
+        }
+      ] 
     }
   ]
 }

@@ -1,11 +1,13 @@
 const express = require('express');
 const app = express();
 
+const ENV = process.env.NODE_ENV || 'local';
 const PORT = 3000;
 
 app.get('/', (req, res) => {
   res.json({
     message: 'ECS Rodando v4.3 teste da separação de task definition por ambientes',
+    environment: ENV,
     timestamp: new Date()
   });
 });
