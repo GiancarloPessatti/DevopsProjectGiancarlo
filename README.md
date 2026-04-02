@@ -1,4 +1,4 @@
-# DevopsProjectGiancarlo: Uma Jornada Completa em DevOps na AWS
+# DevopsProjectGiancarlo
 
 ## Visão Geral do Projeto
 
